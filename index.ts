@@ -1,0 +1,6 @@
+interface Env { ASSETS: Fetcher; OPENAI_API_KEY: string; OPENAI_MODEL?: string }
+export default { async fetch(request:Request,env:Env):Promise<Response>{ const url=new URL(request.url);
+if(url.pathname==="/api/chat"){ if(request.method==="OPTIONS")return new Response(null,{headers:{"Access-Control-Allow-Origin":"*"}}); if(request.method!=="POST")return Response.json({error:"POST bekleniyor."},{status:405});
+if(!env.OPENAI_API_KEY)return Response.json({error:"OPENAI_API_KEY Cloudflare Secret olarak tanımlanmamış."},{status:500});
+try{const body=await request.json() as any; const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":`Bearer ${env.OPENAI_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({model:env.OPENAI_MODEL||"gpt-5.6-luna",input:(body.messages||[]).slice(-30),max_output_tokens:2000})});const d:any=await r.json();if(!r.ok)return Response.json({error:d?.error?.message||"OpenAI API hatası."},{status:r.status});let text=d.output_text||"";if(!text&&Array.isArray(d.output))text=d.output.flatMap((x:any)=>x.content||[]).filter((x:any)=>x.type==="output_text").map((x:any)=>x.text).join("\n");return Response.json({text});}catch(e){return Response.json({error:e instanceof Error?e.message:"Sunucu hatası."},{status:500})}}
+return env.ASSETS.fetch(request); }} satisfies ExportedHandler<Env>;
